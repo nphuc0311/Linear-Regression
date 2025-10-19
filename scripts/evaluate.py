@@ -44,15 +44,8 @@ def evaluate_model(params, data):
     mse = mean_squared_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
     
-    # Save metrics
-    metrics = {
-        "mse": float(mse),
-        "r2": float(r2)
-    }
-    
     metrics_dir = Path("metrics")
     metrics_dir.mkdir(exist_ok=True)
-    
 
     csv_path = metrics_dir / "eval.csv"
     with open(csv_path, "w", newline="") as csvfile:

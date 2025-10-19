@@ -38,11 +38,11 @@ def preprocess_data(params):
         random_state=params["data"]["random_state"]
     )
     
-    # Scale features
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_val = scaler.transform(X_val)
-    X_test = scaler.transform(X_test)
+    # # Scale features
+    # scaler = StandardScaler()
+    # X_train = scaler.fit_transform(X_train)
+    # X_val = scaler.transform(X_val)
+    # X_test = scaler.transform(X_test)
     
     # Create processed data directory
     processed_dir = Path("data/processed")
