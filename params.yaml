@@ -1,0 +1,11 @@
+data:
+  train_size: 0.8
+  val_size: 0.1
+  test_size: 0.1
+  random_state: 42
+
+model:
+  input_features: 3
+  learning_rate: 0.3
+  num_epochs: 100
+  batch_size: 16

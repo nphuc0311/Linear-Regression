@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.pylintrc # Pylint configuration file, often created by IDEs
+
+dvc_plots/

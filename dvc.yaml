@@ -1,0 +1,27 @@
+stages:
+  train:
+    cmd: python scripts/train.py
+    deps:
+      - scripts/train.py
+      - src/models/linear.py
+      - data/processed/processed_data.pkl
+      - params.yaml
+    outs:
+      - models/model.pth
+
+
+  evaluate:
+    cmd: python scripts/evaluate.py
+    deps:
+      - scripts/evaluate.py
+      - src/models/linear.py
+      - data/processed/processed_data.pkl
+      - models/model.pth
+
+plots:
+  - metrics/train.csv:
+      x: epoch
+      y: Loss
+        - train_loss
+        - val_loss
+      title: "Training and Validation Loss per Epoch"
