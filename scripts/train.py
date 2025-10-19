@@ -7,9 +7,12 @@ import csv
 import yaml
 import torch
 import torch.nn as nn
+import matplotlib.pyplot as plt
+
 from pathlib import Path
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.metrics import mean_squared_error, r2_score
+
 
 # Import our model
 from src.models.linear import LinearRegression
@@ -26,15 +29,56 @@ def load_data():
         data = pickle.load(f)
     return data
 
+
+def plot_metrics(epochs, train_losses, val_losses, val_mses, val_r2s, output_dir="plots"):
+    """Plot training metrics."""
+    output_dir = Path(output_dir)
+    output_dir.mkdir(exist_ok=True)
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(epochs, train_losses, label="Train Loss")
+    plt.plot(epochs, val_losses, label="Validation Loss")
+    plt.title("Training & Validation Loss per Epoch")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.grid(True, linestyle="--", alpha=0.6)
+    plt.tight_layout()
+    plt.savefig(output_dir / "loss_curve.png")
+    plt.close()
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(epochs, val_mses, color="orange", label="Validation MSE")
+    plt.title("Validation MSE per Epoch")
+    plt.xlabel("Epoch")
+    plt.ylabel("MSE")
+    plt.legend()
+    plt.grid(True, linestyle="--", alpha=0.6)
+    plt.tight_layout()
+    plt.savefig(output_dir / "val_mse.png")
+    plt.close()
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(epochs, val_r2s, color="green", label="Validation R²")
+    plt.title("Validation R² per Epoch")
+    plt.xlabel("Epoch")
+    plt.ylabel("R² Score")
+    plt.legend()
+    plt.grid(True, linestyle="--", alpha=0.6)
+    plt.tight_layout()
+    plt.savefig(output_dir / "val_r2.png")
+    plt.close()
+
+    print(f"Metrics plots saved in {output_dir}/")
+
+
 def train_model(params, data):
     """Train the linear regression model."""
-    # Convert data to PyTorch tensors
     X_train = torch.FloatTensor(data["X_train"])
     y_train = torch.FloatTensor(data["y_train"]).reshape(-1, 1)
     X_val = torch.FloatTensor(data["X_val"])
     y_val = torch.FloatTensor(data["y_val"]).reshape(-1, 1)
     
-    # Create data loaders
     train_dataset = TensorDataset(X_train, y_train)
     train_loader = DataLoader(
         train_dataset, 
@@ -42,58 +86,38 @@ def train_model(params, data):
         shuffle=True
     )
     
-    # Initialize model, loss function, and optimizer
     model = LinearRegression(params["model"]["input_features"])
     criterion = nn.MSELoss()
-    # optimizer = torch.optim.SGD(
-    #     model.parameters(),
-    #     lr=params["model"]["learning_rate"]
-    # )
-
     optimizer = torch.optim.Adam(model.parameters(), lr=params["model"]["learning_rate"])
     
-    # Containers for per-epoch metrics
-    epochs = []
-    train_losses = []
-    val_losses = []
-    val_mses = []
-    val_r2s = []
+    epochs, train_losses, val_losses, val_mses, val_r2s = [], [], [], [], []
     
-    # Training loop
     for epoch in range(params["model"]["num_epochs"]):
         model.train()
         running_loss = 0.0
         n_batches = 0
         
         for X_batch, y_batch in train_loader:
-            # Forward pass
             y_pred = model(X_batch)
             loss = criterion(y_pred, y_batch)
-            
-            # Backward pass and optimize
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            
             running_loss += loss.item()
             n_batches += 1
         
-        # average train loss for epoch
         avg_train_loss = running_loss / max(1, n_batches)
         
-        # Validation: compute loss and also MSE/R2 on whole validation set
         model.eval()
         with torch.no_grad():
             val_pred = model(X_val)
             val_loss = criterion(val_pred, y_val).item()
         
-        # compute validation mse and r2 using numpy arrays
         y_val_np = y_val.numpy().flatten()
         val_pred_np = val_pred.numpy().flatten()
         val_mse = float(mean_squared_error(y_val_np, val_pred_np))
         val_r2 = float(r2_score(y_val_np, val_pred_np))
         
-        # store metrics
         epoch_idx = epoch + 1
         epochs.append(epoch_idx)
         train_losses.append(float(avg_train_loss))
@@ -103,14 +127,13 @@ def train_model(params, data):
             
         if (epoch + 1) % 10 == 0:
             print(f"Epoch [{epoch+1}/{params['model']['num_epochs']}], "
-                  f"Train Loss: {loss.item():.4f}, "
+                  f"Train Loss: {avg_train_loss:.4f}, "
                   f"Val Loss: {val_loss:.4f}")
             
-    # Save metrics directory and files (JSON + CSV) for DVC plots
     metrics_dir = Path("metrics")
     metrics_dir.mkdir(exist_ok=True)
-
     csv_path = metrics_dir / "train.csv"
+
     with open(csv_path, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         header = ["epoch", "train_loss", "val_loss", "val_mse", "val_r2"]
@@ -124,13 +147,16 @@ def train_model(params, data):
                 val_r2s[i]
             ])
     
-    # Save the model
+    plot_metrics(epochs, train_losses, val_losses, val_mses, val_r2s)
+
     model_dir = Path("models")
     model_dir.mkdir(exist_ok=True)
     torch.save(model.state_dict(), model_dir / "model.pth")
     print("Model training completed and saved successfully.")
 
+
 if __name__ == "__main__":
     params = load_params()
+    torch.manual_seed(params["model"]["random_seed"])
     data = load_data()
     train_model(params, data)
